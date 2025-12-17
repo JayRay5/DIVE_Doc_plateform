@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from transformers.feature_extraction_utils import BatchFeature
 from transformers.image_utils import ImageInput, is_valid_image
 from transformers.processing_utils import (
-    #MultiModalData,
+    MultiModalData,
     ProcessingKwargs,
     ProcessorMixin,
     TextKwargs,
@@ -22,9 +22,11 @@ IMAGE_TOKEN = "<image>"
 EXTRA_TOKENS = [f"<loc{i:0>4}>" for i in range(1024)] + [f"<seg{i:0>3}>" for i in range(128)]
 
 #copied from https://github.com/huggingface/transformers/blob/main/src/transformers/processing_utils.py
+"""
 @dataclass
 class MultiModalData:
     """
+"""
     Dataclass that holds extra useful data for processing
     multimodal data. Processors currently cannot return keys,
     unless it is used in model's forward. Thus we have helper
@@ -33,7 +35,7 @@ class MultiModalData:
     Note that this dataclass is aimed to be used only in vLLM
     and we might change its API in the future.
     """
-
+"""
     num_image_tokens: Optional[list[int]] = None
     num_video_tokens: Optional[list[int]] = None
     num_audio_tokens: Optional[list[int]] = None
@@ -47,7 +49,7 @@ class MultiModalData:
             return getattr(self, key)
         raise AttributeError(f"{self.__class__.__name__} has no attribute {key}")
 
-
+"""
 class PaliGemmaTextKwargs(TextKwargs):
     suffix: Optional[Union[TextInput, PreTokenizedInput, list[TextInput], list[PreTokenizedInput]]]
 
