@@ -1,15 +1,7 @@
-import os
-import random
 import torch
 import pytest
 from transformers import BatchFeature
 from PIL import Image
-from src.processing_divedoc import get_processor
-
-@pytest.fixture(scope="class")
-def processor():
-    hf_token = os.getenv("HF_TOKEN")
-    return get_processor(hf_token,2048,2048,4096)
 
 
 class TestProcessor:
@@ -53,8 +45,6 @@ class TestProcessor:
 
     def test_processor_decode(self,processor):
         original_text = "DIVE-Doc is a 2.5B end-to-end VLM!"
-        
-        
         encoded = processor.tokenizer(original_text, return_tensors="pt",padding=True)
         input_ids = encoded["input_ids"][0] 
         

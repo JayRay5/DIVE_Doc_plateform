@@ -3,6 +3,7 @@ from typing import Optional, Union
 import numpy as np
 from dataclasses import dataclass
 
+from transformers import AutoTokenizer, DonutImageProcessor
 from transformers.feature_extraction_utils import BatchFeature
 from transformers.image_utils import ImageInput, is_valid_image
 from transformers.processing_utils import (
@@ -340,3 +341,11 @@ class PaliGemmaProcessor(ProcessorMixin):
         tokenizer_input_names = self.tokenizer.model_input_names + ["token_type_ids", "labels"]
         image_processor_input_names = self.image_processor.model_input_names
         return list(tokenizer_input_names + image_processor_input_names)
+    
+def get_processor(hf_token,img_height,img_width,img_lm_input_seq_length):
+    tokenizer = AutoTokenizer.from_pretrained("google/paligemma-3b-ft-docvqa-896",token=hf_token)
+    image_processor = DonutImageProcessor.from_pretrained("naver-clova-ix/donut-base-finetuned-docvqa")
+    image_processor.image_seq_length = img_lm_input_seq_length
+    image_processor.size["height"],image_processor.size["width"] = img_height,img_width
+    processor = PaliGemmaProcessor(tokenizer=tokenizer, image_processor=image_processor)
+    return processor

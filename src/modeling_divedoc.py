@@ -21,7 +21,7 @@ from transformers.models.paligemma.configuration_paligemma import PaliGemmaConfi
 from transformers.models.donut.modeling_donut_swin import DonutSwinModel
 
 
-from configuration_divedoc import SwinPamVisionEncoderConfig, DIVEdocConfig
+from .configuration_divedoc import SwinPamVisionEncoderConfig, DIVEdocConfig
 from typing import List, Optional, Tuple, Union, Literal
 from dataclasses import dataclass
 
@@ -515,3 +515,9 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
             model_inputs["attention_mask"] = causal_mask
 
         return model_inputs
+    
+def get_model():
+    model = DIVEdoc.from_pretrained("JayRay5/DIVE-Doc-FRD", trust_remote_code=True).eval()
+    for param in model.parameters():
+        param.requires_grad = False
+    return model
