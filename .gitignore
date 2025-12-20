@@ -9,7 +9,7 @@ venv/
 *.safetensors
 *.pt
 backend_ia/model_weights/
-
+.cache
 # IDE
 .vscode/
 .idea/
