@@ -133,3 +133,61 @@ class DIVEdocConfig(PretrainedConfig):
         output = super().to_dict()
         output.pop("_ignore_index", None)
         return output
+
+
+def get_swin_vision_config(image_size=[2560,1920],hidden_size = 1024):
+    encoder_config = DonutSwinConfig(
+        attention_probs_dropout_prob= 0.0,
+        depths =[
+            2,
+            2,
+            14,
+            2
+        ],
+        drop_path_rate= 0.1,
+        embed_dim =128,
+        hidden_act ="gelu",
+        hidden_dropout_prob = 0.0,
+        hidden_size = hidden_size,
+        image_size = image_size,
+        initializer_range = 0.02,
+        layer_norm_eps = 1e-05,
+        mlp_ratio = 4.0,
+        model_type = "donut-swin",
+        num_channels = 3,
+        num_heads =[
+            4,
+            8,
+            16,
+            32
+        ],
+        num_layers =4,
+        patch_size = 4,
+        path_norm = True,
+        qkv_bias = True,
+        use_absolute_embeddings = False,
+        window_size = 10
+        )
+    return encoder_config
+
+def get_vision_config(  visual_encoder_type:Literal["swinpam","siglip80m"],
+                        image_size=[2560,1920],
+                        sequence_mapping_layer_type= "bilinear",
+                        student_fmap_dim=(80,60),
+                        student_embedding_dim= 1024,
+                        teacher_fmap_dim= (64,64),
+                        teacher_embedding_dim= 1152):
+    pam_config = PamConfig(
+                    sequence_mapping_layer_type = sequence_mapping_layer_type,
+                    student_fmap_dim = student_fmap_dim,
+                    student_embedding_dim = student_embedding_dim,
+                    teacher_fmap_dim = teacher_fmap_dim,
+                    teacher_embedding_dim = teacher_embedding_dim)
+    
+    if visual_encoder_type == "swinpam":
+        encoder_config = get_swin_vision_config(image_size=image_size,hidden_size = student_embedding_dim)
+        ve_config = SwinPamVisionEncoderConfig(encoder_config=encoder_config,pam_config=pam_config)
+        return ve_config
+
+    else:
+        raise ValueError(f"Unknown visual encoder type, need 'swinpam', got {visual_encoder_type}.")
