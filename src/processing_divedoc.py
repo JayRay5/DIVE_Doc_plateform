@@ -1,7 +1,6 @@
 from typing import Optional, Union
 
 import numpy as np
-from dataclasses import dataclass
 
 from transformers import AutoTokenizer, DonutImageProcessor
 from transformers.feature_extraction_utils import BatchFeature
