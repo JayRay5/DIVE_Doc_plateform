@@ -132,6 +132,9 @@ CUSTOM_CSS = f"""
     margin-bottom: 4px;
     filter: brightness(0) invert(1); /* Rend les icônes blanches */
 }}
+.link-btn-color img {{
+     filter: none;
+}}
 
 .link-text {{
     font-size: 0.75em;
@@ -230,8 +233,8 @@ def build_app():
                     <img src="/gradio_api/file=assets/github-mark.svg" alt="Code">
                     <span class="link-text">Code</span>
                 </a>
-                <a href="{PROJECT_INFO['weights_url']}" target="_blank" class="link-btn">
-                    <img src="/gradio_api/file=assets/hf-logo.png" alt="Weights">
+                <a href="{PROJECT_INFO['weights_url']}" target="_blank" class="link-btn link-btn-color">
+                    <img src="/gradio_api/file=assets/hf-logo-pirate.png" alt="Weights">
                     <span class="link-text">Weights</span>
                 </a>
             </div>
