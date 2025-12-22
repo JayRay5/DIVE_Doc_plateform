@@ -25,7 +25,45 @@ jobs:
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
         pip install -r requirements.txt
 
-    - name: Run Unit Tests before push
+    - name: Security Scan with Bandit
+      run: |
+        # On reprend tes arguments validés : récursif, ignore Low
+        bandit -r src/ -ll -ii
+
+    - name: Run Unit Tests 
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }} 
       run: pytest -v -m "not slow"
+
+    - name: Smoke Test Backend (API)
+      run: |
+        echo "API check..."
+        nohup uvicorn src.main:app --host 127.0.0.1 --port 8000 &
+        BACKEND_PID=$!
+        
+        # Attente de 5s pour le démarrage
+        sleep 5
+        
+        echo "Check if API is running..."
+        curl --fail http://127.0.0.1:8000/docs > /dev/null
+        
+        echo "API OK !"
+        kill $BACKEND_PID
+
+    - name: Smoke Test Frontend (Gradio)
+      run: |
+        echo "Check gradio web interface..."
+        python app.py > frontend.log 2>&1 &
+        FRONTEND_PID=$!
+        
+        sleep 15
+        
+        if kill -0 $FRONTEND_PID 2>/dev/null; then
+          echo "Gradio OK !"
+          kill $FRONTEND_PID
+        else
+          echo "Gradio has crashed !"
+          echo "--- LOGS D'ERREUR ---"
+          cat frontend.log
+          exit 1
+        fi
