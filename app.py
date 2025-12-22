@@ -3,322 +3,281 @@ import requests
 import io
 import os
 from pathlib import Path
+from typing import Tuple, Dict
 
-#API_URL = "http://127.0.0.1:8000/ask"
+# --- CONFIGURATION ---
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/ask")
 
-paper_url = "https://openaccess.thecvf.com/content/ICCV2025W/VisionDocs/html/Bencharef_DIVE-Doc_Downscaling_foundational_Image_Visual_Encoder_into_hierarchical_architecture_for_ICCVW_2025_paper.html"
-repository_url = "https://github.com/JayRay5/DIVE-Doc"
-weights_url = "https://huggingface.co/JayRay5/DIVE-Doc-FRD"
-# --- COULEURS ICCV & THEME PERSONNALISÉ ---
-# Une palette professionnelle : Bleu profond, Teal moderne, et Gris Ardoise
-iccv_blue_primary = "#005b96"   # Bleu institutionnel fort
-iccv_blue_secondary = "#0088cc" # Bleu plus clair pour les dégradés
-iccv_bg_gray = "#f8fafc"        # Fond très clair, légèrement bleuté
-iccv_purple = "#a42967"
-# Définition du thème Gradio
-# On part du thème Soft et on injecte nos couleurs
-theme = gr.themes.Soft(
-    # On force notre bleu comme couleur primaire
-    primary_hue=gr.themes.Color(
-        c50= "#e6f0f7", c100="#b3cde0", c200="#99bdd6", c300="#80adcc", 
-        c400="#669cc2", c500=iccv_blue_primary, c600="#00528a", c700="#004a7a", 
-        c800="#003d66", c900="#002e4d", c950="#001f33"
-    ),
-    neutral_hue="slate", # Slate donne un ton gris-bleu professionnel aux textes
-    font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui"]
-).set(
-    # Ajustements fins pour un look "Premium"
-    body_background_fill=iccv_bg_gray,
-    block_background_fill="#ffffff",
-    block_border_width="0px",
-    block_shadow="0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    button_primary_background_fill="*primary_500",
-    button_primary_text_color="white",
-    button_large_radius="8px"
-)
+# Méta-données du projet
+PROJECT_INFO = {
+    "title": "DIVE-Doc",
+    "paper_url": "https://openaccess.thecvf.com/content/ICCV2025W/VisionDocs/html/Bencharef_DIVE-Doc_Downscaling_foundational_Image_Visual_Encoder_into_hierarchical_architecture_for_ICCVW_2025_paper.html",
+    "repo_url": "https://github.com/JayRay5/DIVE-Doc",
+    "weights_url": "https://huggingface.co/JayRay5/DIVE-Doc-FRD",
+    "citation": """@InProceedings{Bencharef_2025_ICCV,
+    author    = {Bencharef, Rayane and Rahiche, Abderrahmane and Cheriet, Mohamed},
+    title     = {DIVE-Doc: Downscaling foundational Image Visual Encoder into hierarchical architecture for DocVQA},
+    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) Workshops},
+    month     = {October},
+    year      = {2025},
+    pages     = {7547-7556}
+}"""
+}
 
-# --- CUSTOM CSS POUR LA BANNIÈRE ICCV ---
-custom_css = f"""
+# --- PALETTE DE COULEURS ICCV ---
+COLORS = {
+    "primary": "#005b96",    # Bleu institutionnel
+    "secondary": "#0088cc",  # Bleu clair
+    "bg": "#f8fafc",         # Gris très clair
+    "purple": "#a42967",     # Accent
+    "gold": "#FFD700"        # Award
+}
+
+# --- CSS PROFESSIONNEL ---
+CUSTOM_CSS = f"""
+/* Conteneur Principal En-tête */
 #title-container {{
-    display: flex;              /* Active le mode Flexbox */
-    flex-direction: row;        /* Force l'alignement HORIZONTAL (Gauche vers Droite) */
-    align-items: center;        /* Centre verticalement (le logo et le texte sont à la même hauteur) */
-    justify-content: space-between;    /* Centre tout le bloc au milieu de la page */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 40px;
-    padding: 40px 20px;
-    /* Dégradé professionnel ICCV */
-    background: linear-gradient(135deg, {iccv_blue_primary} 0%, {iccv_blue_secondary} 100%);
+    padding: 30px 40px;
+    background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['secondary']} 100%);
     color: white;
     border-radius: 12px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     box-shadow: 0 10px 25px -5px rgba(0, 91, 150, 0.3);
+    flex-wrap: wrap; /* Permet le responsive */
 }}
 
-.row-logo {{
-    display: flex;              /* Active le mode Flexbox */
-    flex-direction: row;        /* Force l'alignement HORIZONTAL (Gauche vers Droite) */
-    align-items: center;        /* Centre verticalement (le logo et le texte sont à la même hauteur) */
-    justify-content: space-between;    /* Centre tout le bloc au milieu de la page */
-    max-width:30%;
+/* Zone Logo + Titres */
+.header-left {{
+    display: flex;
+    align-items: center;
+    gap: 30px;
 }}
 
-.link-text{{
-    color:{iccv_purple};
-    text-decoration:none;
-    font-weight: bold;
-
-}}
-a:link, a:visited, a:hover, a:active{{
-    text-decoration:none;
+.logo-img {{
+    height: 80px;
+    width: auto;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
 }}
 
-.logo-wrapper img{{
-    /* On force la taille du SVG pour qu'il ne prenne pas toute la page */
-    height: 80px; 
-    max-width: auto;
-    
-    /* Ombre portée pour le détacher du fond */
-    drop-shadow: 0 4px 6px rgba(0,0,0,0.3);
+.titles-wrapper {{
+    display: flex;
+    flex-direction: column;
 }}
 
-.titles-container{{
-    display: flex;              /* Active le mode Flexbox */
-    flex-direction: column;        /* Force l'alignement HORIZONTAL (Gauche vers Droite) */
-    align-items: center;        /* Centre verticalement (le logo et le texte sont à la même hauteur) */
-    justify-content: space-between;  
-}}
-#logo-text {{
-    font-size: 2.9em;
+#project-title {{
+    font-size: 3em;
     font-weight: 800;
+    line-height: 1;
     letter-spacing: -1px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}}
-#subtitle-text {{
-    font-size: 1.3em;
-    font-weight: 400;
-    opacity: 0.9;
-    margin-top: 10px;
-    display:flex;
-    flex-direction:row;
-    justify-content: space-between;
-    gap:5px;
 }}
 
-@media (min-width: 1025px) and (max-width: 1280px){{
-       #subtitle-text {{
-       font-size: 0.7em;
-       max-width:250px;
-}}
-}}
-@media (min-width: 769px) and (max-width: 1025px){{
-       #subtitle-text {{
-    font-size: 0.7em;
+#project-subtitle {{
+    font-size: 1.1em;
     font-weight: 400;
-    opacity: 0.9;
-    margin-top: 10px;
-    display:flex;
-    flex-direction:row;
+    opacity: 0.95;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}}
+
+/* Badge Award */
+.award-badge {{
+    background: rgba(255, 215, 0, 0.15);
+    border: 1px solid {COLORS['gold']};
+    color: {COLORS['gold']};
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85em;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}}
+
+/* Zone Liens (Boutons à droite) */
+.links-container {{
+    display: flex;
+    gap: 15px;
+}}
+
+.link-btn {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    align-items:center;
-    gap:5px;
-    max-width:250px;
-}}
-    #logo-text {{
-    font-size: 1.9em;
-    font-weight: 800;
-    letter-spacing: -1px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}}
-.logo-wrapper img{{
-    /* On force la taille du SVG pour qu'il ne prenne pas toute la page */
-    height: 40px; 
-    max-width: auto;
-    
-    /* Ombre portée pour le détacher du fond */
-    drop-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}}
-.link-text{{
-    color:{iccv_purple};
-    text-decoration:none;
-    font-weight: bold;
-    font-size:0.7em;
-
-}}
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: white;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 70px;
 }}
 
-@media (max-width: 768px) {{
+.link-btn:hover {{
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}}
+
+.link-btn img {{
+    height: 24px;
+    margin-bottom: 4px;
+    filter: brightness(0) invert(1); /* Rend les icônes blanches */
+}}
+
+.link-text {{
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
+
+/* RESPONSIVE DESIGN (Mobile) */
+@media (max-width: 1200px) {{
     #title-container {{
-        flex-direction: column; /* On empile verticalement */
-        justify-content: center;
+        flex-direction: column;
         text-align: center;
-        padding: 5% 2%;
+        padding: 20px;
     }}
-
-    #logo-text {{
-    font-size: 1.9em;
-    font-weight: 800;
-    letter-spacing: -1px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}}
-    #subtitle-text {{
-    font-size: 0.7em;
-    font-weight: 400;
-    opacity: 0.9;
-    margin-top: 10px;
-    display:flex;
-    flex-direction:column;
-    justify-content: center;
-    gap:5px;
-    max-width:250px;
-}}
-.row-logo {{
-    display: flex;              /* Active le mode Flexbox */
-    flex-direction: row;        /* Force l'alignement HORIZONTAL (Gauche vers Droite) */
-    align-items: center;        /* Centre verticalement (le logo et le texte sont à la même hauteur) */
-    justify-content: space-between;    /* Centre tout le bloc au milieu de la page */
-    max-width:100%;
-}}
-.logo-wrapper img{{
-    /* On force la taille du SVG pour qu'il ne prenne pas toute la page */
-    height: 40px; 
-    max-width: auto;
-    
-    /* Ombre portée pour le détacher du fond */
-    drop-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}}
-.link-text{{
-    color:{iccv_purple};
-    text-decoration:none;
-    font-weight: bold;
-    font-size:0.7em;
-
-}}
-   
+    .header-left {{
+        flex-direction: column;
+        gap: 15px;
+    }}
+    .titles-wrapper {{ align-items: center; }}
+    #project-subtitle {{ flex-direction: column; }}
+    .links-container {{ margin-top: 15px; }}
 }}
 """
 
-def app():
-    def answer_question(image, question):
-        if image is None:
-            return "⚠️ Error : Please upload an image before to submit."
-    
-        if not question:
-            return "⚠️ Error : Please write a question before to submit."
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='JPEG')
-        img_bytes = img_byte_arr.getvalue()
+# --- FONCTION LOGIQUE ---
+def answer_question(image, question):
+    if image is None:
+        return "⚠️ Error: Please upload an image first."
+    if not question:
+        return "⚠️ Error: Please enter a question."
 
-        payload = {"question": question}
-        files = {"file": ("image.jpg", img_bytes, "image/jpeg")}
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='JPEG')
+    img_bytes = img_byte_arr.getvalue()
 
-        try:
-            print(f"[INFO] Sending the request to {API_URL}...")
-            response = requests.post(API_URL, data=payload, files=files,timeout=480)
-            if response.status_code == 200:
-                result = response.json()
-                return result.get("answer", "Pas de réponse trouvée.")
-            else:
-                return f"Server error : ({response.status_code}) : {response.text}"
-            
-        except requests.exceptions.Timeout:
-            return "Timeout: The model took too long to respond."
-        except requests.exceptions.ConnectionError:
-            return "API Connection issue."
-        except Exception as e:
-            return f"Unexpected Error : {str(e)}"
+    payload = {"question": question}
+    files = {"file": ("image.jpg", img_bytes, "image/jpeg")}
 
-    with gr.Blocks(theme=theme, css=custom_css, title="DIVE-Doc ICCV'25 Demo") as demo:
-            
-            # 1. Header Bannière "ICCV Style"
-            with gr.Row():
-                with gr.Column(scale=1):
-                    gr.HTML(
-                        f"""
-                        <div id="title-container">
-                            <div class="logo-wrapper">
-                            <img src="/gradio_api/file=assets/iccv-navbar-logo.svg" alt="ICCV 2025 Logo">
-                            </div>
-
-                            <div class="titles-container">
-                            <div id="logo-text">🤖 DIVE-Doc</div>
-                            <div id="subtitle-text"><span style="text-align:center;">Spotlight Presentation at the workshop <span style="color:{iccv_purple}; font-weight:bold;"> VisionDocs </span> <span style="opacity: 0.8; margin: 0 8px;">|</span><span style="color: #FFD700; font-weight: 600;">🏆 Best Paper Award</span><span></div>
-                            </div>
-
-                            <div class="row-logo">
-                            <a href="{paper_url}" class="logo-wrapper"><img src="/gradio_api/file=assets/cropped-cvf-s.png" alt="CvF Logo"><div class="link-text">Paper</div></a>
-                            <a href="{repository_url}" class="logo-wrapper"><img src="/gradio_api/file=assets/github-mark.svg" alt="GitHub Logo"><div class="link-text">Code</div></a>
-                            <a href="{weights_url}" class="logo-wrapper"><img src="/gradio_api/file=assets/hf-logo.png" alt="HuggingFace Logo"><div class="link-text">Weights</div></a>
-                            </div>
-                        </div>
-                        """
-                    )
-
-            # 2. Zone Principale (2 Colonnes avec des titres propres)
-            with gr.Row():
-                # Colonne GAUCHE
-                with gr.Column(scale=5, variant="panel"):
-                    gr.Markdown("### 📄 1. Upload Document")
-                    input_img = gr.Image(
-                        type="pil", 
-                        label="", # Label caché car le titre Markdown suffit
-                        height=450,
-                        sources=["upload", "clipboard"])
-
-                # Colonne DROITE
-                with gr.Column(scale=4, variant="panel"):
-                    gr.Markdown("### 💬 2. Ask & Analyze")
-                    input_question = gr.Textbox(
-                        label="Question", 
-                        placeholder="e.g., What is the invoice total amount?",
-                        lines=3
-                    )
-                    
-                    submit_btn = gr.Button("🚀 Run Inference", variant="primary", size="lg")
-                    
-                    #gr.Separator() # Une ligne de séparation propre
-                    
-                    gr.Markdown("### 💡 Model Prediction")
-                    output_answer = gr.Textbox(
-                        label="",
-                        show_label=False,
-                        lines=4,
-                        interactive=False,
-                        placeholder="The answer will appear here..."
-                    )
-
+    try:
+        print(f"[INFO] Sending request to {API_URL}...")
+        response = requests.post(API_URL, data=payload, files=files, timeout=480)
         
+        if response.status_code == 200:
+            result = response.json()
+            return result.get("answer", "No answer found.")
+        else:
+            return f"Server Error ({response.status_code}): {response.text}"
 
-            # 4. Exemples
-            gr.Markdown("### 🧪 Test with Official Examples")
-            gr.Examples(
-                # REMPLACE PAR TES VRAIS FICHIERS
-                examples=[
-                # ["examples/figure1_iccv.png", "What is the main trend in chart A?"],
-                # ["examples/table2_results.png", "What is the accuracy for DIVE-Doc on DocVQA?"],
-                ],
-                inputs=[input_img, input_question],
-                label="Click to load example",
-                cache_examples=False # Important si pas de GPU sur la machine Gradio
-            )
+    except requests.exceptions.Timeout:
+        return "⏳ Timeout: The model is taking too long (try a smaller image)."
+    except requests.exceptions.ConnectionError:
+        return "⛔ Connection Error: Is the backend running?"
+    except Exception as e:
+        return f"Unexpected Error: {str(e)}"
 
-            # --- LOGIQUE ---
-            submit_btn.click(
-                fn=answer_question, 
-                inputs=[input_img, input_question], 
-                outputs=[output_answer]
-            )
+# --- CONSTRUCTION DE L'INTERFACE ---
+def build_app():
+    # Définition du thème
+    theme = gr.themes.Soft(
+        primary_hue=gr.themes.Color(
+            c50="#e6f0f7", c100="#b3cde0", c200="#99bdd6", c300="#80adcc",
+            c400="#669cc2", c500=COLORS['primary'], c600="#00528a", c700="#004a7a",
+            c800="#003d66", c900="#002e4d", c950="#001f33"
+        ),
+        neutral_hue="slate",
+        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui"]
+    ).set(
+        body_background_fill=COLORS['bg'],
+        button_primary_background_fill="*primary_500",
+        button_primary_text_color="white",
+        button_large_radius="8px"
+    )
+
+    with gr.Blocks(theme=theme, css=CUSTOM_CSS, title=f"{PROJECT_INFO['title']} Demo") as demo:
+        
+        # 1. HEADER HTML STRUCTURÉ
+        gr.HTML(f"""
+        <div id="title-container">
+            <div class="header-left">
+                <img src="/gradio_api/file=assets/iccv-navbar-logo.svg" class="logo-img" alt="ICCV Logo">
+                <div class="titles-wrapper">
+                    <div id="project-title">{PROJECT_INFO['title']}</div>
+                    <div id="project-subtitle">
+                        <span>Spotlight at <b>VisionDocs Workshop</b></span>
+                        <div class="award-badge">🏆 Best Paper Award</div>
+                    </div>
+                </div>
+            </div>
             
-            input_question.submit(
-                fn=answer_question, 
-                inputs=[input_img, input_question], 
-                outputs=[output_answer]
-            )
+            <div class="links-container">
+                <a href="{PROJECT_INFO['paper_url']}" target="_blank" class="link-btn">
+                    <img src="/gradio_api/file=assets/cropped-cvf-s.png" alt="Paper">
+                    <span class="link-text">Paper</span>
+                </a>
+                <a href="{PROJECT_INFO['repo_url']}" target="_blank" class="link-btn">
+                    <img src="/gradio_api/file=assets/github-mark.svg" alt="Code">
+                    <span class="link-text">Code</span>
+                </a>
+                <a href="{PROJECT_INFO['weights_url']}" target="_blank" class="link-btn">
+                    <img src="/gradio_api/file=assets/hf-logo.png" alt="Weights">
+                    <span class="link-text">Weights</span>
+                </a>
+            </div>
+        </div>
+        """)
 
-        # Lancement
+        # 2. ZONE PRINCIPALE
+        with gr.Row():
+            # Colonne Gauche : Image
+            with gr.Column(scale=5):
+                gr.Markdown("### 📄 Upload Document")
+                input_img = gr.Image(type="pil", label="Document", height=500, sources=["upload", "clipboard"])
+
+            # Colonne Droite : Chat
+            with gr.Column(scale=4):
+                gr.Markdown("### 💬 Ask a Question")
+                input_question = gr.Textbox(label="Your Question", placeholder="e.g., What is the total amount?", lines=3)
+                
+                submit_btn = gr.Button("🚀 Run Inference", variant="primary", size="lg")
+                
+                gr.Markdown("### 💡 Model Answer")
+                output_answer = gr.Textbox(label="Prediction", show_label=False, lines=5, interactive=False)
+
+        # 3. EXEMPLES
+        gr.Markdown("### 🧪 Try with Examples")
+        gr.Examples(
+            examples=[], # Ajoute tes exemples ici ["examples/img.jpg", "question"]
+            inputs=[input_img, input_question],
+            label="Click an example to load"
+        )
+        
+        # 4. CITATION (Standard Académique)
+        with gr.Accordion("📝 Cite this work", open=False):
+            # APRÈS (Ce qui marche)
+            gr.Code(value=PROJECT_INFO['citation'], language="latex", label="BibTeX", interactive=False)
+
+        # 5. ÉVÉNEMENTS
+        submit_btn.click(fn=answer_question, inputs=[input_img, input_question], outputs=output_answer)
+        input_question.submit(fn=answer_question, inputs=[input_img, input_question], outputs=output_answer)
+
+    # Récupération du chemin absolu pour les assets
     gr.set_static_paths(paths=[Path.cwd().absolute()/"assets"])
-    print(f"Starting ICCV'25 Themed Gradio on port 7860...")
-    demo.launch(server_name="0.0.0.0", server_port=7860, favicon_path=None) # Tu peux ajouter un favicon.ico si tu en as un
+    
+    # allowed_paths est la méthode la plus robuste
+    demo.launch(server_name="0.0.0.0", server_port=7860)
 
 if __name__ == "__main__":
-    app()
+    build_app()
