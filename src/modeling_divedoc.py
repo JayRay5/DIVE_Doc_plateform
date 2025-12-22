@@ -1,10 +1,3 @@
-import sys
-from pathlib import Path
-parent_root = Path().resolve().parent.parent 
-sys.path.append(str(parent_root))
-
-
-
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
@@ -13,12 +6,23 @@ from torch import Tensor
 
 from transformers import Cache, HybridCache, StaticCache
 from transformers.modeling_outputs import BaseModelOutput
-from transformers.utils import ModelOutput, is_torchdynamo_compiling, replace_return_docstrings
+from transformers.utils import (
+    ModelOutput,
+    is_torchdynamo_compiling,
+    replace_return_docstrings,
+)
 from transformers.utils.deprecation import deprecate_kwarg
-from transformers import PreTrainedModel, AutoConfig, PaliGemmaPreTrainedModel,AutoModelForCausalLM,GenerationMixin
-from transformers.models.paligemma.modeling_paligemma import PaliGemmaMultiModalProjector, PaliGemmaCausalLMOutputWithPast
+from transformers import (
+    PreTrainedModel,
+    AutoConfig,
+    PaliGemmaPreTrainedModel,
+    AutoModelForCausalLM,
+    GenerationMixin,
+)
+from transformers.models.paligemma.modeling_paligemma import PaliGemmaCausalLMOutputWithPast
 from transformers.models.paligemma.configuration_paligemma import PaliGemmaConfig
 from transformers.models.donut.modeling_donut_swin import DonutSwinModel
+from transformers.utils import logging
 
 
 from .configuration_divedoc import SwinPamVisionEncoderConfig, DIVEdocConfig
@@ -26,84 +30,117 @@ from typing import List, Optional, Tuple, Union, Literal
 from dataclasses import dataclass
 
 
+logger = logging.get_logger(__name__)
+
+
+
 class PAM(nn.Module):
     def __init__(
         self,
-        sequence_mapping_layer_type: Literal["linear_projection","bilinear","bicubic","nearest-exact"] = "bilinear",
-        student_fmap_dim: Tuple[int,int]=(80,60),
+        sequence_mapping_layer_type: Literal[
+            "linear_projection", "bilinear", "bicubic", "nearest-exact"
+        ] = "bilinear",
+        student_fmap_dim: Tuple[int, int] = (80, 60),
         student_embedding_dim: int = 1024,
-        teacher_fmap_dim: Tuple[int,int] = (64,64),
-        teacher_embedding_dim: int = 1152
-                ):
+        teacher_fmap_dim: Tuple[int, int] = (64, 64),
+        teacher_embedding_dim: int = 1152,
+    ):
         super().__init__()
         self.sequence_mapping_layer_type = sequence_mapping_layer_type
-        self.sequence_mapping_layer = nn.Linear(student_fmap_dim[0]*student_fmap_dim[1],teacher_fmap_dim[0]*teacher_fmap_dim[1]) if sequence_mapping_layer_type == "linear_projection" else None
+        self.sequence_mapping_layer = (
+            nn.Linear(
+                student_fmap_dim[0] * student_fmap_dim[1],
+                teacher_fmap_dim[0] * teacher_fmap_dim[1],
+            )
+            if sequence_mapping_layer_type == "linear_projection"
+            else None
+        )
         self.embedding_projection_layer = nn.Sequential(
-            nn.Linear(student_embedding_dim,teacher_embedding_dim),
-            nn.LayerNorm((teacher_embedding_dim,),eps=1e-06))
-        
+            nn.Linear(student_embedding_dim, teacher_embedding_dim),
+            nn.LayerNorm((teacher_embedding_dim,), eps=1e-06),
+        )
+
         self.student_fmap_dim = student_fmap_dim
         self.student_embedding_dim = student_embedding_dim
         self.teacher_fmap_dim = teacher_fmap_dim
         self.teacher_embedding_dim = teacher_embedding_dim
-        
+
         print(self.student_fmap_dim)
-    #take input x of shape (Batch, Nb_token, Dim_embedding)
-    def forward(self,x:Tensor) -> Tensor:
+
+    # take input x of shape (Batch, Nb_token, Dim_embedding)
+    def forward(self, x: Tensor) -> Tensor:
         #
-        '''
+        """
         if x.shape[1] != self.student_fmap_dim[0] * self.student_fmap_dim[1] or x.shape[2] != self.student_embedding_dim:
             raise ValueError(f"Expected input shape (*, {self.student_fmap_dim[0] * self.student_fmap_dim[1],self.student_embedding_dim}), "
                              f"but got {x.shape}")
-        '''
-        
-        if x.shape[1]!=(self.teacher_fmap_dim[0]*self.teacher_fmap_dim[1]):
+        """
+
+        if x.shape[1] != (self.teacher_fmap_dim[0] * self.teacher_fmap_dim[1]):
             print(x.shape[1])
-            print(self.teacher_fmap_dim[0]*self.teacher_fmap_dim[1])
+            print(self.teacher_fmap_dim[0] * self.teacher_fmap_dim[1])
             print("Resizing")
             if self.sequence_mapping_layer_type == "linear_projection":
-                x = torch.permute(x,(0,2,1))
+                x = torch.permute(x, (0, 2, 1))
                 x = self.sequence_mapping_layer(x)
-                x = torch.permute(x,(0,2,1))
+                x = torch.permute(x, (0, 2, 1))
 
-            elif self.sequence_mapping_layer_type in ["bilinear","bicubic","nearest-exact"]:
-                batch_size,_,embedding_size = x.size()
-                x = x.view(batch_size,self.student_fmap_dim[0],self.student_fmap_dim[1],embedding_size).permute(0,3, 1, 2)
-                x = F.interpolate(x,size=self.teacher_fmap_dim,mode=self.sequence_mapping_layer_type)  # Shape: (1, D, target_height, target_width)
-                x = x.permute(0,2, 3, 1).reshape(batch_size,-1, embedding_size)
+            elif self.sequence_mapping_layer_type in [
+                "bilinear",
+                "bicubic",
+                "nearest-exact",
+            ]:
+                batch_size, _, embedding_size = x.size()
+                x = x.view(
+                    batch_size,
+                    self.student_fmap_dim[0],
+                    self.student_fmap_dim[1],
+                    embedding_size,
+                ).permute(0, 3, 1, 2)
+                x = F.interpolate(
+                    x, size=self.teacher_fmap_dim, mode=self.sequence_mapping_layer_type
+                )  # Shape: (1, D, target_height, target_width)
+                x = x.permute(0, 2, 3, 1).reshape(batch_size, -1, embedding_size)
 
             else:
-                raise ValueError(f"Need a sequence mapping type in [linear_projection, bilinear","bicubic","nearest-exact], got {sequence_mapping_layer_type}")
-            
+                raise ValueError(
+                    "Need a sequence mapping type in [linear_projection, bilinear",
+                    "bicubic",
+                    "nearest-exact], got {sequence_mapping_layer_type}",
+                )
+
         x = self.embedding_projection_layer(x)
         print(x.shape)
         return x
- 
+
+
 class SwinPam(nn.Module):
     def __init__(
         self,
         encoder_config: AutoConfig,
-        pam_sequence_mapping_layer_type: Literal["linear_projection","bilinear","bicubic","nearest-exact"] = "bilinear",
-        pam_student_fmap_dim: Tuple[int,int] = (80,60),
+        pam_sequence_mapping_layer_type: Literal[
+            "linear_projection", "bilinear", "bicubic", "nearest-exact"
+        ] = "bilinear",
+        pam_student_fmap_dim: Tuple[int, int] = (80, 60),
         pam_student_embedding_dim: int = 1024,
-        pam_teacher_fmap_dim: Tuple[int,int] = (64,64),
-        pam_teacher_embedding_dim: int = 1152
-        ):
+        pam_teacher_fmap_dim: Tuple[int, int] = (64, 64),
+        pam_teacher_embedding_dim: int = 1152,
+    ):
         super().__init__()
         self.encoder_model = DonutSwinModel(encoder_config)
         print(pam_student_fmap_dim)
-        self.pam = PAM( 
-            sequence_mapping_layer_type = pam_sequence_mapping_layer_type,
-            student_fmap_dim = pam_student_fmap_dim,
-            student_embedding_dim = pam_student_embedding_dim,
-            teacher_fmap_dim = pam_teacher_fmap_dim,
-            teacher_embedding_dim = pam_teacher_embedding_dim)
+        self.pam = PAM(
+            sequence_mapping_layer_type=pam_sequence_mapping_layer_type,
+            student_fmap_dim=pam_student_fmap_dim,
+            student_embedding_dim=pam_student_embedding_dim,
+            teacher_fmap_dim=pam_teacher_fmap_dim,
+            teacher_embedding_dim=pam_teacher_embedding_dim,
+        )
 
-    def forward(self,x):
+    def forward(self, x):
         x = self.encoder_model(x).last_hidden_state
         x = self.pam(x)
-        return x 
-
+        return x
 
 
 @dataclass
@@ -117,6 +154,7 @@ class SwinPamVisionEncoderOutput(ModelOutput):
     """
 
     last_hidden_states: Optional[torch.FloatTensor] = None
+
 
 class SwinPamVisionEncoder(PreTrainedModel):
     config_class = SwinPamVisionEncoderConfig
@@ -132,7 +170,8 @@ class SwinPamVisionEncoder(PreTrainedModel):
             config.pam_config.teacher_fmap_dim,
             config.pam_config.teacher_embedding_dim,
         )
-    def forward(self,x):
+
+    def forward(self, x):
         x = self.model(x)
         return BaseModelOutput(last_hidden_state=x)
 
@@ -141,7 +180,11 @@ class SwinPamVisionEncoder(PreTrainedModel):
 class PaliGemmaMultiModalProjector(nn.Module):
     def __init__(self, config: PaliGemmaConfig):
         super().__init__()
-        self.linear = nn.Linear(config.vision_config.pam_config.teacher_embedding_dim, config.vision_config.projection_dim, bias=True)
+        self.linear = nn.Linear(
+            config.vision_config.pam_config.teacher_embedding_dim,
+            config.vision_config.projection_dim,
+            bias=True,
+        )
 
     def forward(self, image_features):
         hidden_states = self.linear(image_features)
@@ -151,8 +194,11 @@ class PaliGemmaMultiModalProjector(nn.Module):
 
 # Copied & Adapted from https://github.com/huggingface/transformers/blob/main/src/transformers/models/paligemma/modeling_paligemma.py
 _CONFIG_FOR_DOC = "DIVEdocConfig"
+
+
 class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
     config_class = DIVEdocConfig
+
     def __init__(self, config: DIVEdocConfig):
         super().__init__(config)
 
@@ -169,10 +215,14 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         language_model = AutoModelForCausalLM.from_config(config=config.text_config)
 
         if language_model._tied_weights_keys is not None:
-            self._tied_weights_keys = [f"language_model.{k}" for k in language_model._tied_weights_keys]
+            self._tied_weights_keys = [
+                f"language_model.{k}" for k in language_model._tied_weights_keys
+            ]
         self.language_model = language_model
 
-        self.pad_token_id = self.config.pad_token_id if self.config.pad_token_id is not None else -1
+        self.pad_token_id = (
+            self.config.pad_token_id if self.config.pad_token_id is not None else -1
+        )
         self.post_init()
 
     # Copied from transformers.models.llava.modeling_llava.LlavaForConditionalGeneration.get_input_embeddings with Llava->PaliGemma
@@ -198,6 +248,7 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
     # Copied from transformers.models.llava.modeling_llava.LlavaForConditionalGeneration.get_decoder with Llava->PaliGemma
     def get_decoder(self):
         return self.language_model.get_decoder()
+
     def get_dtype(self):
         return self.dtype
 
@@ -209,7 +260,7 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         cache_position=None,
         input_tensor=None,
         is_training: bool = None,
-        dtype=None, #to handle quantized finetuning issue when model switch between 4 or 8bit and float
+        dtype=None,  # to handle quantized finetuning issue when model switch between 4 or 8bit and float
     ):
         if self.config.text_config._attn_implementation == "flash_attention_2":
             if attention_mask is not None and 0.0 in attention_mask:
@@ -223,8 +274,7 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         if dtype is not None:
             min_dtype = torch.finfo(dtype).min
         else:
-            min_dtype = torch.finfo(self.get_dtype()).min        
-
+            min_dtype = torch.finfo(self.get_dtype()).min
 
         if input_tensor is None:
             input_tensor = attention_mask
@@ -244,13 +294,16 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         if attention_mask is not None and attention_mask.dim() == 4:
             # In this case we assume that the mask comes already in inverted form and requires no inversion or slicing.
             return attention_mask
-        ''' initial line but changed for quantization processing
+        """ initial line but changed for quantization processing
         causal_mask = torch.full(
             (sequence_length, target_length), fill_value=min_dtype, dtype=self.dtype, device=cache_position.device
         )
-        '''
+        """
         causal_mask = torch.full(
-            (sequence_length, target_length), fill_value=min_dtype, dtype=dtype, device=cache_position.device
+            (sequence_length, target_length),
+            fill_value=min_dtype,
+            dtype=dtype,
+            device=cache_position.device,
         )
         # Causal diagonal mask only if training, otherwise attend to the whole prefix. Training-specific attn for prefix is handled below
         if sequence_length != 1:
@@ -259,26 +312,34 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
             else:
                 causal_mask[:, :sequence_length] = 0.0
 
-        causal_mask *= torch.arange(target_length, device=cache_position.device) > cache_position.reshape(-1, 1)
+        causal_mask *= torch.arange(
+            target_length, device=cache_position.device
+        ) > cache_position.reshape(-1, 1)
         causal_mask = causal_mask[None, None, :, :].expand(inputs_lead_dim, 1, -1, -1)
         if attention_mask is not None:
-            causal_mask = causal_mask.clone()  # copy to contiguous memory for in-place edit
+            causal_mask = (
+                causal_mask.clone()
+            )  # copy to contiguous memory for in-place edit
             mask_length = attention_mask.shape[-1]
 
             # First unmask prefix tokens during training
             if is_training:
                 if token_type_ids is None:
                     raise ValueError("Token type ids must be provided during training")
-                causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
+                causal_mask[:, :, :, :mask_length] = causal_mask[
+                    :, :, :, :mask_length
+                ].masked_fill(
                     token_type_ids[:, None, None, :].to(causal_mask.device) == 0, 0
                 )
 
             # Then apply padding mask (will mask pad tokens)
-            padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[:, None, None, :].to(causal_mask.device)
+            padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[
+                :, None, None, :
+            ].to(causal_mask.device)
             padding_mask = padding_mask == 0
-            causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
-                padding_mask, min_dtype
-            )
+            causal_mask[:, :, :, :mask_length] = causal_mask[
+                :, :, :, :mask_length
+            ].masked_fill(padding_mask, min_dtype)
 
         return causal_mask
 
@@ -298,7 +359,9 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         return image_features
 
     @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
-    @replace_return_docstrings(output_type=PaliGemmaCausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
+    @replace_return_docstrings(
+        output_type=PaliGemmaCausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC
+    )
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -345,17 +408,27 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         >>> processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
         "Where is the cat standing?\nsnow"
         ```"""
-        #save the original dtype before switching to 4bit when quantization
+        # save the original dtype before switching to 4bit when quantization
         dtype = self.get_dtype()
 
         if (input_ids is None) ^ (inputs_embeds is not None):
-            raise ValueError("You must specify exactly one of input_ids or inputs_embeds")
+            raise ValueError(
+                "You must specify exactly one of input_ids or inputs_embeds"
+            )
 
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        output_attentions = (
+            output_attentions
+            if output_attentions is not None
+            else self.config.output_attentions
         )
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        output_hidden_states = (
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
+        )
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         is_training = token_type_ids is not None and labels is not None
 
@@ -371,13 +444,19 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
             inputs_embeds = self.get_input_embeddings()(llm_input_ids)
 
         if cache_position is None:
-            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            past_seen_tokens = (
+                past_key_values.get_seq_length() if past_key_values is not None else 0
+            )
             cache_position = torch.arange(
-                past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
+                past_seen_tokens,
+                past_seen_tokens + inputs_embeds.shape[1],
+                device=inputs_embeds.device,
             )
 
         if position_ids is None:
-            position_ids = cache_position.unsqueeze(0) + 1  # Paligemma positions are 1-indexed
+            position_ids = (
+                cache_position.unsqueeze(0) + 1
+            )  # Paligemma positions are 1-indexed
 
         # Merge text and images
         if pixel_values is not None:
@@ -385,21 +464,36 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
 
             if input_ids is None:
                 special_image_mask = inputs_embeds == self.get_input_embeddings()(
-                    torch.tensor(self.config.image_token_index, dtype=torch.long, device=inputs_embeds.device)
+                    torch.tensor(
+                        self.config.image_token_index,
+                        dtype=torch.long,
+                        device=inputs_embeds.device,
+                    )
                 )
             else:
-                special_image_mask = (input_ids == self.config.image_token_index).unsqueeze(-1)
-                special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
+                special_image_mask = (
+                    input_ids == self.config.image_token_index
+                ).unsqueeze(-1)
+                special_image_mask = special_image_mask.expand_as(inputs_embeds).to(
+                    inputs_embeds.device
+                )
 
-            if not is_torchdynamo_compiling() and inputs_embeds[special_image_mask].numel() != image_features.numel():
+            if (
+                not is_torchdynamo_compiling()
+                and inputs_embeds[special_image_mask].numel() != image_features.numel()
+            ):
                 image_tokens_in_text = (special_image_mask).sum(dim=1).sum(dim=0)[0]
                 raise ValueError(
                     f"Number of images does not match number of special image tokens in the input text. "
                     f"Got {image_tokens_in_text} image tokens in the text but {image_features.shape[0] * image_features.shape[1]} "
                     "tokens from image embeddings."
                 )
-            image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
-            inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, image_features)
+            image_features = image_features.to(
+                inputs_embeds.device, inputs_embeds.dtype
+            )
+            inputs_embeds = inputs_embeds.masked_scatter(
+                special_image_mask, image_features
+            )
 
         # mask out pad-token-ids in labels for BC
         if labels is not None and self.pad_token_id in labels:
@@ -407,10 +501,18 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
                 "`labels` contains `pad_token_id` which will be masked with `config.ignore_index`. "
                 "You have to mask out `pad_token_id` when preparing `labels`, this behavior will be removed in v.4.46.",
             )
-            labels = torch.where(input_ids == self.pad_token_id, self.config.ignore_index, labels)
+            labels = torch.where(
+                input_ids == self.pad_token_id, self.config.ignore_index, labels
+            )
 
         causal_mask = self._update_causal_mask(
-            attention_mask, token_type_ids, past_key_values, cache_position, inputs_embeds, is_training,dtype=dtype
+            attention_mask,
+            token_type_ids,
+            past_key_values,
+            cache_position,
+            inputs_embeds,
+            is_training,
+            dtype=dtype,
         )
         outputs = self.language_model(
             attention_mask=causal_mask,
@@ -432,13 +534,19 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
             # Upcast to float if we need to compute the loss to avoid potential precision issues
             shift_logits = logits[..., :-1, :]
             shift_labels = labels[..., 1:]
-            
+
             if attention_mask is not None:
                 # we use the input attention mask to shift the logits and labels, because it is 2D.
                 # we also crop attn mask in case it is longer, which happens in PrefixTuning with peft
-                shift_attention_mask = attention_mask[:, -shift_logits.shape[1] :].to(logits.device)
-                shift_logits = shift_logits[shift_attention_mask.to(logits.device) != 0].contiguous()
-                shift_labels = shift_labels[shift_attention_mask.to(shift_labels.device) != 0].contiguous()
+                shift_attention_mask = attention_mask[:, -shift_logits.shape[1] :].to(
+                    logits.device
+                )
+                shift_logits = shift_logits[
+                    shift_attention_mask.to(logits.device) != 0
+                ].contiguous()
+                shift_labels = shift_labels[
+                    shift_attention_mask.to(shift_labels.device) != 0
+                ].contiguous()
             else:
                 shift_logits = shift_logits.contiguous()
                 shift_labels = shift_labels.contiguous()
@@ -507,14 +615,22 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
         if cache_position[0] == 0 and isinstance(past_key_values, HybridCache):
             input_tensor = inputs_embeds if inputs_embeds is not None else input_ids
             causal_mask = self._update_causal_mask(
-                attention_mask, token_type_ids, past_key_values, cache_position, input_tensor, is_training
+                attention_mask,
+                token_type_ids,
+                past_key_values,
+                cache_position,
+                input_tensor,
+                is_training,
             )
             model_inputs["attention_mask"] = causal_mask
 
         return model_inputs
-    
+
+
 def get_model():
-    model = DIVEdoc.from_pretrained("JayRay5/DIVE-Doc-FRD", trust_remote_code=True).eval()
+    model = DIVEdoc.from_pretrained(
+        "JayRay5/DIVE-Doc-FRD", trust_remote_code=True
+    ).eval()
     for param in model.parameters():
         param.requires_grad = False
 

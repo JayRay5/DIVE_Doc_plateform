@@ -1,0 +1,10 @@
+# .github/dependabot.yml
+version: 2
+updates:
+  # Check for dependency vulnerabilities
+  - package-ecosystem: "pip"
+    directory: "/" # Look for requirements.txt at root
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    

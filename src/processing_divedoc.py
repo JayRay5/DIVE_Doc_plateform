@@ -12,18 +12,27 @@ from transformers.processing_utils import (
     TextKwargs,
     Unpack,
 )
-from transformers.tokenization_utils_base import AddedToken, PreTokenizedInput, TextInput
+from transformers.tokenization_utils_base import (
+    AddedToken,
+    PreTokenizedInput,
+    TextInput,
+)
 from transformers.utils import logging
 
 
 logger = logging.get_logger(__name__)
 
 IMAGE_TOKEN = "<image>"
-EXTRA_TOKENS = [f"<loc{i:0>4}>" for i in range(1024)] + [f"<seg{i:0>3}>" for i in range(128)]
+EXTRA_TOKENS = [f"<loc{i:0>4}>" for i in range(1024)] + [
+    f"<seg{i:0>3}>" for i in range(128)
+]
+
 
 # Copied from https://github.com/huggingface/transformers/blob/main/src/transformers/processing_utils.py
 class PaliGemmaTextKwargs(TextKwargs):
-    suffix: Optional[Union[TextInput, PreTokenizedInput, list[TextInput], list[PreTokenizedInput]]]
+    suffix: Optional[
+        Union[TextInput, PreTokenizedInput, list[TextInput], list[PreTokenizedInput]]
+    ]
 
 
 class PaliGemmaProcessorKwargs(ProcessingKwargs, total=False):
@@ -78,7 +87,7 @@ def build_string_from_input(prompt, bos_token, image_seq_len, image_token, num_i
 # Copied and adapted from https://github.com/huggingface/transformers/blob/main/src/transformers/models/paligemma/processing_paligemma.py
 class PaliGemmaProcessor(ProcessorMixin):
     attributes = ["image_processor", "tokenizer"]
-    image_processor_class = "DonutImageProcessor"  #change from the original SigLipImageProcessor to DonutImageProcessor
+    image_processor_class = "DonutImageProcessor"  # change from the original SigLipImageProcessor to DonutImageProcessor
     tokenizer_class = "GemmaTokenizerFast"
     r"""
     Constructs a PaliGemma processor which wraps a PaliGemma image processor and a PaliGemma tokenizer into a single processor.
@@ -103,7 +112,9 @@ class PaliGemmaProcessor(ProcessorMixin):
         **kwargs,
     ):
         if not hasattr(image_processor, "image_seq_length"):
-            raise ValueError("Image processor is missing an `image_seq_length` attribute.")
+            raise ValueError(
+                "Image processor is missing an `image_seq_length` attribute."
+            )
 
         self.image_seq_length = image_processor.image_seq_length
 
@@ -126,7 +137,9 @@ class PaliGemmaProcessor(ProcessorMixin):
     def __call__(
         self,
         images: Optional[ImageInput] = None,
-        text: Union[TextInput, PreTokenizedInput, list[TextInput], list[PreTokenizedInput]] = None,
+        text: Union[
+            TextInput, PreTokenizedInput, list[TextInput], list[PreTokenizedInput]
+        ] = None,
         **kwargs: Unpack[PaliGemmaProcessorKwargs],
     ) -> BatchFeature:
         """
@@ -195,7 +208,9 @@ class PaliGemmaProcessor(ProcessorMixin):
         return_token_type_ids = True
 
         if images is None:
-            raise ValueError("`images` are expected as arguments to a `PaliGemmaProcessor` instance.")
+            raise ValueError(
+                "`images` are expected as arguments to a `PaliGemmaProcessor` instance."
+            )
         if text is None:
             logger.warning_once(
                 "You are using PaliGemma without a text prefix. It will perform as a picture-captioning model."
@@ -223,36 +238,48 @@ class PaliGemmaProcessor(ProcessorMixin):
                         )
 
                 # make a nested list of lists to be able to iterate over the images and text below
-                
+
                 if is_valid_image(images):
                     images = [images]
                 elif isinstance(images, (list, tuple)) and is_valid_image(images[0]):
                     images = [image for image in images]
                 elif not (
                     isinstance(images, (list, tuple))
-                   # and isinstance(images[0], (list, tuple))
+                    # and isinstance(images[0], (list, tuple))
                     and is_valid_image(images[0])
                 ):
-                    raise ValueError("images must be an image, list of images or list of list of images")
-                
+                    raise ValueError(
+                        "images must be an image, list of images or list of list of images"
+                    )
+
                 input_strings = [
                     build_string_from_input(
                         prompt=prompt,
                         bos_token=self.tokenizer.bos_token,
                         image_seq_len=self.image_seq_length,
                         image_token=IMAGE_TOKEN,
-                        num_images=len(image_list) if isinstance(image_list, list) else 1,
+                        num_images=len(image_list)
+                        if isinstance(image_list, list)
+                        else 1,
                     )
                     for prompt, image_list in zip(text, images)
                 ]
             else:
                 expanded_samples = []
                 for sample in text:
-                    expanded_sample = sample.replace(IMAGE_TOKEN, IMAGE_TOKEN * self.image_seq_length)
+                    expanded_sample = sample.replace(
+                        IMAGE_TOKEN, IMAGE_TOKEN * self.image_seq_length
+                    )
                     bos_rfind_index = expanded_sample.rfind(IMAGE_TOKEN)
-                    bos_index = bos_rfind_index + len(IMAGE_TOKEN) if bos_rfind_index != -1 else 0
+                    bos_index = (
+                        bos_rfind_index + len(IMAGE_TOKEN)
+                        if bos_rfind_index != -1
+                        else 0
+                    )
                     expanded_sample = (
-                        expanded_sample[:bos_index] + self.tokenizer.bos_token + expanded_sample[bos_index:]
+                        expanded_sample[:bos_index]
+                        + self.tokenizer.bos_token
+                        + expanded_sample[bos_index:]
                     )
                     expanded_samples.append(expanded_sample)
                 input_strings = [f"{sample}\n" for sample in expanded_samples]
@@ -261,17 +288,21 @@ class PaliGemmaProcessor(ProcessorMixin):
             suffix = [suffix]
         if suffix is not None:
             suffix = [sfx + self.tokenizer.eos_token for sfx in suffix]
-        pixel_values = self.image_processor(images, **output_kwargs["images_kwargs"])["pixel_values"]
+        pixel_values = self.image_processor(images, **output_kwargs["images_kwargs"])[
+            "pixel_values"
+        ]
 
         return_tensors = output_kwargs["text_kwargs"].pop("return_tensors", None)
-        return_mm_token_type_ids = output_kwargs["text_kwargs"].pop("return_mm_token_type_ids", None)
+        return_mm_token_type_ids = output_kwargs["text_kwargs"].pop(
+            "return_mm_token_type_ids", None
+        )
         inputs = self.tokenizer(
             input_strings,
             text_pair=suffix,
             return_token_type_ids=return_token_type_ids,
             **output_kwargs["text_kwargs"],
         )
-        #self._check_special_mm_tokens(input_strings, inputs, modalities=["image"])
+        # self._check_special_mm_tokens(input_strings, inputs, modalities=["image"])
 
         return_data = {**inputs, "pixel_values": pixel_values}
 
@@ -304,19 +335,35 @@ class PaliGemmaProcessor(ProcessorMixin):
         if image_sizes is not None:
             num_image_tokens = [self.image_seq_length] * len(image_sizes)
             num_image_patches = [1] * len(image_sizes)
-            vision_data.update({"num_image_tokens": num_image_tokens, "num_image_patches": num_image_patches})
+            vision_data.update(
+                {
+                    "num_image_tokens": num_image_tokens,
+                    "num_image_patches": num_image_patches,
+                }
+            )
         return MultiModalData(**vision_data)
 
     @property
     def model_input_names(self):
-        tokenizer_input_names = self.tokenizer.model_input_names + ["token_type_ids", "labels"]
+        tokenizer_input_names = self.tokenizer.model_input_names + [
+            "token_type_ids",
+            "labels",
+        ]
         image_processor_input_names = self.image_processor.model_input_names
         return list(tokenizer_input_names + image_processor_input_names)
-    
-def get_processor(hf_token,img_height,img_width,img_lm_input_seq_length):
-    tokenizer = AutoTokenizer.from_pretrained("google/paligemma-3b-ft-docvqa-896",token=hf_token)
-    image_processor = DonutImageProcessor.from_pretrained("naver-clova-ix/donut-base-finetuned-docvqa")
+
+
+def get_processor(hf_token, img_height, img_width, img_lm_input_seq_length):
+    tokenizer = AutoTokenizer.from_pretrained(
+        "google/paligemma-3b-ft-docvqa-896", token=hf_token
+    )
+    image_processor = DonutImageProcessor.from_pretrained(
+        "naver-clova-ix/donut-base-finetuned-docvqa"
+    )
     image_processor.image_seq_length = img_lm_input_seq_length
-    image_processor.size["height"],image_processor.size["width"] = img_height,img_width
+    image_processor.size["height"], image_processor.size["width"] = (
+        img_height,
+        img_width,
+    )
     processor = PaliGemmaProcessor(tokenizer=tokenizer, image_processor=image_processor)
     return processor
