@@ -19,7 +19,9 @@ from transformers import (
     AutoModelForCausalLM,
     GenerationMixin,
 )
-from transformers.models.paligemma.modeling_paligemma import PaliGemmaCausalLMOutputWithPast
+from transformers.models.paligemma.modeling_paligemma import (
+    PaliGemmaCausalLMOutputWithPast,
+)
 from transformers.models.paligemma.configuration_paligemma import PaliGemmaConfig
 from transformers.models.donut.modeling_donut_swin import DonutSwinModel
 from transformers.utils import logging
@@ -31,7 +33,6 @@ from dataclasses import dataclass
 
 
 logger = logging.get_logger(__name__)
-
 
 
 class PAM(nn.Module):
@@ -629,7 +630,9 @@ class DIVEdoc(PaliGemmaPreTrainedModel, GenerationMixin):
 
 def get_model():
     model = DIVEdoc.from_pretrained(
-        "JayRay5/DIVE-Doc-FRD", trust_remote_code=True, revision="37d4cc1859b1cb6691930fe573e33b0a88928c59"
+        "JayRay5/DIVE-Doc-FRD",
+        trust_remote_code=True,
+        revision="37d4cc1859b1cb6691930fe573e33b0a88928c59",
     ).eval()
     for param in model.parameters():
         param.requires_grad = False

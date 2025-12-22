@@ -2,8 +2,6 @@ from transformers import PretrainedConfig, DonutSwinConfig, GemmaConfig, CONFIG_
 from typing import Tuple, Literal
 
 
-
-
 class PamConfig(PretrainedConfig):
     model_type = "pam"
 

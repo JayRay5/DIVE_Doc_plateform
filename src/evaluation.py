@@ -35,7 +35,9 @@ def test_results_generation(path):
     """
 
     model = get_model()
-    processor = get_processor(hf_token, img_height=2048, img_width=2048, img_lm_input_seq_length=4096)
+    processor = get_processor(
+        hf_token, img_height=2048, img_width=2048, img_lm_input_seq_length=4096
+    )
 
     """
 
@@ -45,7 +47,10 @@ def test_results_generation(path):
     """
 
     test_dataset = load_dataset(
-        "pixparse/docvqa-single-page-questions", split="test", streaming=True, revision="33136ef456fa5a3fe68568d6e31dda4eeff95b9b"
+        "pixparse/docvqa-single-page-questions",
+        split="test",
+        streaming=True,
+        revision="33136ef456fa5a3fe68568d6e31dda4eeff95b9b",
     )
     batch_dataset = test_dataset.batch(2)
 

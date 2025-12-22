@@ -355,10 +355,13 @@ class PaliGemmaProcessor(ProcessorMixin):
 
 def get_processor(hf_token, img_height, img_width, img_lm_input_seq_length):
     tokenizer = AutoTokenizer.from_pretrained(
-        "google/paligemma-3b-ft-docvqa-896", token=hf_token, revision="f80dd60ed0c372afa26a9668b30d2eb399af2911"
+        "google/paligemma-3b-ft-docvqa-896",
+        token=hf_token,
+        revision="acbe61b1b8507f7c7af03a0d42e9908e7b6d4d5d",
     )
     image_processor = DonutImageProcessor.from_pretrained(
-        "naver-clova-ix/donut-base-finetuned-docvqa", revision="b19d2e332684b0e2d35d9144ce34047767335cf8"
+        "naver-clova-ix/donut-base-finetuned-docvqa",
+        revision="b19d2e332684b0e2d35d9144ce34047767335cf8",
     )
     image_processor.image_seq_length = img_lm_input_seq_length
     image_processor.size["height"], image_processor.size["width"] = (

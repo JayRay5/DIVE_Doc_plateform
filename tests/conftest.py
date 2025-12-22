@@ -22,6 +22,6 @@ def processor(hf_token):
 @pytest.fixture(scope="session")
 def model():
     model = get_model()
-    assert not model.training 
+    assert not model.training
     assert all(not p.requires_grad for p in model.parameters())
     return model
