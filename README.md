@@ -20,8 +20,8 @@ Following **MLOps best practices**, this repository ensures code robustness thro
 ## Installation & Setup
 1- Install dependencies
 ```bash
-conda create divedoc-plateform-env
-conda activate divedoc-plateform-env
+conda create divedoc-platform-env python=3.12.12
+conda activate divedoc-platform-env
 pip install -r requirements.txt
 ```
 
