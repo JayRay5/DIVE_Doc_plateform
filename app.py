@@ -171,8 +171,15 @@ CUSTOM_CSS = f"""
 }}
 """
 
+
 def change_btn_cls():
-            return gr.Button("🚀 Run Inference", variant="primary", elem_id="clicked_inference_btn", size="lg",)
+    return gr.Button(
+        "🚀 Run Inference",
+        variant="primary",
+        elem_id="clicked_inference_btn",
+        size="lg",
+    )
+
 
 def answer_question(image, question):
     if image is None:
@@ -313,17 +320,15 @@ def build_app():
                 interactive=False,
             )
 
-        
-        # --- Event --- 
+        # --- Event ---
         submit_btn.click(
-            fn=change_btn_cls,
-            inputs=None,
-            outputs=submit_btn,
-            queue=False
-            ).then(fn=answer_question,
-                inputs=[input_img, input_question],
-                outputs=output_answer,)
-        
+            fn=change_btn_cls, inputs=None, outputs=submit_btn, queue=False
+        ).then(
+            fn=answer_question,
+            inputs=[input_img, input_question],
+            outputs=output_answer,
+        )
+
         input_question.submit(
             fn=answer_question,
             inputs=[input_img, input_question],
