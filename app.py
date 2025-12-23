@@ -27,6 +27,8 @@ PROJECT_INFO = {
 COLORS = {
     "primary": "#005b96",
     "secondary": "#0088cc",
+    "main": "#8db8ce",
+    "inference-btn": "#5ea7cb",
     "bg": "#f8fafc",
     "purple": "#a42967",
     "gold": "#FFD700",
@@ -42,7 +44,7 @@ CUSTOM_CSS = f"""
     justify-content: space-between;
     gap: 40px;
     padding: 30px 40px;
-    background: linear-gradient(135deg, {COLORS["primary"]} 0%, {COLORS["secondary"]} 100%);
+    background-color: {COLORS["main"]};
     color: white;
     border-radius: 12px;
     margin-bottom: 20px;
@@ -140,6 +142,12 @@ CUSTOM_CSS = f"""
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}}
+#inference_btn {{
+    background-color: {COLORS["inference-btn"]} !important; /* Un peu plus foncé au survol */
+}}
+#inference_btn:hover {{
+    background-color: {COLORS["purple"]} !important; /* Un peu plus foncé au survol */
 }}
 
 /* RESPONSIVE DESIGN (Mobile & Tablet) */
@@ -270,7 +278,7 @@ def build_app():
                     lines=3,
                 )
 
-                submit_btn = gr.Button("🚀 Run Inference", variant="primary", size="lg")
+                submit_btn = gr.Button("🚀 Run Inference", variant="primary", elem_id="inference_btn", size="lg")
 
                 gr.Markdown("### 💡 Model Answer")
                 output_answer = gr.Textbox(
