@@ -1,4 +1,4 @@
-# DIVE_Doc_plateform
+# DIVE-Doc's Web Demo platform.
 [![CI Pipeline](https://github.com/JayRay5/DIVE_Doc_plateform/actions/workflows/push.yml/badge.svg)](https://github.com/JayRay5/DIVE_Doc_plateform/actions)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
