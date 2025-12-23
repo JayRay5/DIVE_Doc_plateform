@@ -36,6 +36,8 @@ jobs:
       run: pytest -v -m "not slow"
 
     - name: Smoke Test Backend (API)
+      env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }} 
       run: |
         echo "API check..."
         nohup uvicorn src.main:app --host 127.0.0.1 --port 8000 &
@@ -51,6 +53,8 @@ jobs:
         kill $BACKEND_PID
 
     - name: Smoke Test Frontend (Gradio)
+      env:
+        HF_TOKEN: ${{ secrets.HF_TOKEN }} 
       run: |
         echo "Check gradio web interface..."
         python app.py > frontend.log 2>&1 &
