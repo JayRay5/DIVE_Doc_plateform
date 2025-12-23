@@ -1,9 +1,9 @@
 # DIVE_Doc_plateform
 
 ## Description
+This project is the open-source code of the [demo web platform]() for the model [DIVE-Doc](). Using standart practice of MLOps, this repository uses libraries such as bandit (security check), ruff (quality and format check), and pytest (Unit test). By utilizing GitHub hooks/actions, it maintains a functional codebase in the repository through standard CI/CD practices.
 
-
-### Installation & Setup
+## Installation & Setup
 1- Install dependencies
 ```bash
 conda create divedoc-plateform-env
@@ -12,7 +12,7 @@ pip install -r requirements.txt
 ```
 
 2- Install the git hook
-I add a git hook that is executed before each push locally and run : <br>
+I added a git hook that is executed before each push locally and run: <br>
  - bandit: to check security issues
  - ruff: to check quality and format
  - pytest: to check main functions' sanity
@@ -20,7 +20,7 @@ I add a git hook that is executed before each push locally and run : <br>
 pre-commit install --hook-type pre-push
 ```
 
-3- Run the sever locally
+3- Run the server locally
 ```bash
 #terminal 1
 python app.py
