@@ -24,10 +24,10 @@ conda create --name divedoc-platform-env python=3.12.12
 conda activate divedoc-platform-env
 pip install -r requirements.txt
 ```
-You will need a HuggingFace token in order to use processors and models of this repository. Please, go to your [HuggingFace](https://huggingface.co/settings/tokens) account and create a token that gives you the right to use [PaliGEMMA](https://huggingface.co/google/paligemma-3b-ft-docvqa-896) processor and [Donut](https://huggingface.co/naver-clova-ix/donut-base-finetuned-docvqa) processors.<br>
+You will need a HuggingFace token in order to use processors and models of this repository. Please, go to your [HuggingFace](https://huggingface.co/settings/tokens) account and create a token that gives you the right to use [PaliGEMMA](https://huggingface.co/google/paligemma-3b-ft-docvqa-896) and [Donut](https://huggingface.co/naver-clova-ix/donut-base-finetuned-docvqa) processors.<br>
 Then, add this token into your divedoc-platform-env virtual environment by running the following command:
 ```bash
-conda env config vars set HF_TOKEN=
+conda env config vars set HF_TOKEN="your_token"
 ```
 
 2- Install the git hook <br>
