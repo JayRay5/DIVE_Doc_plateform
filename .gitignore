@@ -14,5 +14,6 @@ backend_ia/model_weights/
 .vscode/
 .idea/
 
-#notebook
+#file
 *.ipynb
+*.out
