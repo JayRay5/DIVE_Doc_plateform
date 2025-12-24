@@ -1,6 +1,5 @@
 # DIVE-Doc's Web Demo platform.
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)
-[![CI/CD Pipeline](https://github.com/JayRay5/DIVE_Doc_plateform/actions/workflows/main_pipeline.yml/badge.svg)](https://github.com/JayRay5/DIVE_Doc_plateform/actions/workflows/main_pipeline.yml)
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/Rayane/DIVE-Doc)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
