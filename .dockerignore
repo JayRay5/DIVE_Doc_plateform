@@ -1,0 +1,22 @@
+# Git et configs
+.git
+.gitignore
+.pre-commit-config.yaml
+
+# Virtual env
+.venv
+venv
+env
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+
+# Données locales et Notebooks
+data/
+*.ipynb
+*.log
+
+# SÉCURITÉ (ne jamais copier le fichier secret dans l'image)
+.env
+Dockerfile
+.dockerignore
