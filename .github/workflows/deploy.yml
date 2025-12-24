@@ -7,14 +7,13 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-# Variables globales pour le registre d'images
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # On retire IMAGE_NAME d'ici car on va le générer dynamiquement en minuscules
 
 jobs:
   # ====================================================
-  # JOB 1 : TES TESTS EXISTANTS
+  # JOB 1 : TESTS (Inchangé)
   # ====================================================
   test:
     runs-on: ubuntu-latest
@@ -30,7 +29,6 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # Installation CPU pour aller vite en test
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
         pip install -r requirements.txt
 
@@ -85,20 +83,24 @@ jobs:
         fi
 
   # ====================================================
-  # JOB 2 : BUILD DOCKER (Nouveau)
+  # JOB 2 : BUILD DOCKER (Correction Minuscules)
   # ====================================================
   build-and-push:
-    needs: test  # Sécurité : On attend que les tests soient verts
-    # On ne déploie que si c'est un push sur main (pas sur les Pull Requests)
+    needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Permission d'écrire dans le registre GitHub
+      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # --- CORRECTION MINUSCULES ---
+      - name: Lowercase Repo Name
+        run: |
+          echo "IMAGE_NAME=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -107,11 +109,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} # Utilise la version minuscule
           tags: |
             type=raw,value=latest
             type=sha
@@ -125,32 +127,36 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   # ====================================================
-  # JOB 3 : DEPLOY TO HUGGING FACE (Nouveau)
+  # JOB 3 : DEPLOY TO HF (Correction Minuscules)
   # ====================================================
   deploy-to-hf:
-    needs: build-and-push # Sécurité : On attend que l'image soit prête
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      # --- CORRECTION MINUSCULES ---
+      - name: Lowercase Repo Name for URL
+        run: |
+          echo "LOWERCASE_REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      
       - name: Update HF Space Dockerfile
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          # 👇⚠️ REMPLACE PAR TES INFOS ICI ⚠️👇
-          HF_USERNAME: JayRay5
-          SPACE_NAME: DIVE-Doc-docvqa
-          # 👆--------------------------------👆
-          DOCKER_IMAGE: ghcr.io/${{ github.repository }}:latest
+          HF_USERNAME: JayRay5      # Vérifie que c'est bien ton user HF
+          SPACE_NAME: DIVE_Doc_plateform     # Vérifie que c'est bien ton space HF
+          # On construit l'URL avec la variable minuscule créée juste au-dessus
+          DOCKER_IMAGE: ghcr.io/${{ env.LOWERCASE_REPO }}:latest
         run: |
           git config --global user.email "bot@github.com"
           git config --global user.name "GitHub Action Bot"
           
-          # Clone le repo du Space
           git clone https://oauth2:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME space_repo
           cd space_repo
           
-          # Force le Dockerfile à utiliser l'image GitHub
+          # Debug : Afficher l'image qu'on va écrire (pour vérifier)
+          echo "Deploying Image: $DOCKER_IMAGE"
+          
           echo "FROM $DOCKER_IMAGE" > Dockerfile
           
-          # Push vers HF
           git add Dockerfile
           git commit -m "Deploy: Update image from GitHub Actions" --allow-empty
           git push --force
