@@ -195,7 +195,9 @@ def answer_question(image, question):
         device_type = health_response.json().get("device", "unknown")
 
         if device_type == "cpu":
-            gr.Warning("⚠️ The model is running on CPU and might take up to 60s.")
+            gr.Warning(
+                "⚠️ The model is running on CPU and might take up to 120s or more."
+            )
 
     except Exception as e:
         print(f"Warning check failed: {e}")
