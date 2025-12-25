@@ -633,6 +633,8 @@ def get_model():
         "JayRay5/DIVE-Doc-FRD",
         trust_remote_code=True,
         revision="37d4cc1859b1cb6691930fe573e33b0a88928c59",
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+        device_map="auto",
     ).eval()
     for param in model.parameters():
         param.requires_grad = False

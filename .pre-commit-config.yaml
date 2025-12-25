@@ -5,7 +5,7 @@ repos:
     hooks:
       - id: bandit
         name: Bandit Security Check
-        entry: bandit src -r -ll -ii 
+        entry: bandit -r src app.py -ll -ii
         types: [python]
         # Arguments explanation:
         # -r  : Recursive (scan all files in the folder)
@@ -13,6 +13,7 @@ repos:
         # -ii : Confidence (only report Medium and High confidence, avoid false positives)
         # src : The specific folder to scan (avoids scanning tests/ which usually trigger false alarms)
         language: system
+        pass_filenames: false
 
   # Check code quality, error and format at each commit using ruff
       - id: ruff # ruff check 

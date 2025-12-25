@@ -63,6 +63,22 @@ def health_check():
     return {"status": "ok", "model_loaded": "model" in constants}
 
 
+@app.get("/model_device")
+def model_device_check():
+    if "device" not in constants:
+        if "model" not in constants:
+            raise HTTPException(status_code=503, detail="Model not found.")
+        model = constants["model"]
+        try:
+            device = model.device.type
+        except Exception:
+            device = "unknown"
+    else:
+        device = constants["device"]
+
+    return {"status": "ready", "device": device}
+
+
 @app.post("/ask")
 async def ask_question(question: str = Form(...), file: UploadFile = File(...)):
     if "model" not in constants:
@@ -87,9 +103,11 @@ async def ask_question(question: str = Form(...), file: UploadFile = File(...)):
         processor = constants["processor"]
         device = constants["device"]
 
-        inputs = processor(
-            text=question, images=image, return_tensors="pt", padding=True
-        ).to(device)
+        inputs = (
+            processor(text=question, images=image, return_tensors="pt", padding=True)
+            .to(device)
+            .to(model.dtype)
+        )
         input_length = inputs["input_ids"].shape[-1]
 
         # authorize on thread at a time

@@ -5,7 +5,9 @@ import os
 from pathlib import Path
 
 # --- Backend url ---
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/ask")
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+API_URL_ASK = f"{API_URL}/ask"
+API_URL_MODEL_DEVICE_CHECK = f"{API_URL}/model_device"
 
 # META-DATA
 PROJECT_INFO = {
@@ -187,6 +189,18 @@ def answer_question(image, question):
     if not question:
         return "⚠️ Error: Please enter a question."
 
+    try:
+        # check the device model in the backend
+        health_response = requests.get(f"{API_URL_MODEL_DEVICE_CHECK}", timeout=2)
+        device_type = health_response.json().get("device", "unknown")
+
+        if device_type == "cpu":
+            gr.Warning("⚠️ The model is running on CPU and might take up to 60s.")
+
+    except Exception as e:
+        print(f"Warning check failed: {e}")
+        pass
+
     img_byte_arr = io.BytesIO()
     image.save(img_byte_arr, format="JPEG")
     img_bytes = img_byte_arr.getvalue()
@@ -195,8 +209,8 @@ def answer_question(image, question):
     files = {"file": ("image.jpg", img_bytes, "image/jpeg")}
 
     try:
-        print(f"[INFO] Sending request to {API_URL}...")
-        response = requests.post(API_URL, data=payload, files=files, timeout=480)
+        print(f"[INFO] Sending request to {API_URL_ASK}...")
+        response = requests.post(API_URL_ASK, data=payload, files=files, timeout=480)
 
         if response.status_code == 200:
             result = response.json()
@@ -336,7 +350,7 @@ def build_app():
         )
 
     gr.set_static_paths(paths=[Path.cwd().absolute() / "assets"])
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860)  # nosec B104
 
 
 if __name__ == "__main__":

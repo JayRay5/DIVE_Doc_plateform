@@ -14,9 +14,11 @@ class TestDiveDocModel:
         image = Image.open(image_path).convert("RGB")
         question = "What is the title of this document?"
 
-        inputs = processor(
-            text=question, images=image, return_tensors="pt", padding=True
-        ).to(model.device)
+        inputs = (
+            processor(text=question, images=image, return_tensors="pt", padding=True)
+            .to(model.device)
+            .to(model.dtype)
+        )
         input_length = inputs["input_ids"].shape[-1]
 
         with torch.inference_mode():
