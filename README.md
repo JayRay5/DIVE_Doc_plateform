@@ -48,11 +48,6 @@ chmod +x .git/hooks/pre-push
 
 3- Run the server locally
 ```bash
-#terminal 1
-python app.py
-```
-
-```bash
-#terminal 2
-uvicorn src.main:app --host 127.0.0.1 --port 8000
+chmod +x ./start.sh
+./start.sh
 ```
