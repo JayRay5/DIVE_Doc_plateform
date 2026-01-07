@@ -85,7 +85,7 @@ def build_string_from_input(prompt, bos_token, image_seq_len, image_token, num_i
 
 
 # Copied and adapted from https://github.com/huggingface/transformers/blob/main/src/transformers/models/paligemma/processing_paligemma.py
-class PaliGemmaProcessor(ProcessorMixin):
+class DIVEdocProcessor(ProcessorMixin):
     attributes = ["image_processor", "tokenizer"]
     image_processor_class = "DonutImageProcessor"  # change from the original SigLipImageProcessor to DonutImageProcessor
     tokenizer_class = "GemmaTokenizerFast"
@@ -368,5 +368,5 @@ def get_processor(hf_token, img_height, img_width, img_lm_input_seq_length):
         img_height,
         img_width,
     )
-    processor = PaliGemmaProcessor(tokenizer=tokenizer, image_processor=image_processor)
+    processor = DIVEdocProcessor(tokenizer=tokenizer, image_processor=image_processor)
     return processor
